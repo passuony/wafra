@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build
+dist/
+build/
+.next/
+.vite/
+
+# Cache / local tools
+.cache/
+.config/
+.upm/
+.agents/
+
+# Test / coverage
+coverage/
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Unclear / local development files
+hash
+client/src/components/Untitled
+attached_assets/
