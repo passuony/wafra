@@ -1,69 +1,87 @@
-# وفرة (Wafra) — Food Waste Reduction Platform
+# Wafra (وفرة) — Food Waste Reduction Platform
+
+A full-stack, multilingual platform connecting restaurants with charities to reduce food
+waste — with role-based dashboards for restaurants, charities, delivery drivers, and admins.
 
 ## Overview
-A full-stack multilingual web platform connecting restaurants with charities to reduce food waste. Four roles: restaurants, charities, admin, delivery drivers.
+
+Wafra coordinates four roles around a single workflow: restaurants list surplus food,
+charities reserve it or pool requests into shared "baskets," delivery drivers pick up and
+deliver, and admins oversee the whole system. Built as a graduation project (team of 2) —
+see [Role & Ownership](#role--ownership) below.
+
+## Key Features
+
+- **Charity baskets**: charities create baskets of needed items; multiple restaurants
+  contribute partial quantities; a basket auto-completes at 100% fulfillment and
+  auto-generates deliveries per contributing restaurant (idempotent via `SELECT FOR UPDATE`)
+- **Strict delivery state machine** (9 states): mirrors real courier apps — pending →
+  accepted → en route to restaurant → restaurant confirms handoff → picked up → en route
+  to charity → charity confirms receipt → driver confirms → completed. Both handoff points
+  require the receiving party's explicit confirmation before the flow can advance.
+- **6-way mutual rating system**: after a delivery completes, every role can rate every
+  counterpart they interacted with (restaurant↔charity↔driver)
+- **Interactive delivery map**: Leaflet + OpenStreetMap showing pickup/dropoff pins and
+  route, with Nominatim geocoding
+- **Real-time notifications**: unread badge, mark-read/mark-all-read, fully localized via
+  a template-key system that interpolates parameters per user language
+- **Full multilingual support**: Arabic (RTL), English, Russian — auto-switching layout
+  direction, every workflow status and dashboard translated
+- **Dark mode**, contact form with admin inbox, full activity audit log
 
 ## Tech Stack
-- **Frontend**: React + TypeScript, Vite, Wouter, Tailwind CSS, shadcn/ui, Recharts, react-leaflet/Leaflet
-- **Backend**: Express.js, JWT authentication, Drizzle ORM
-- **Database**: PostgreSQL
-- **Languages**: Arabic (RTL), English (LTR), Russian (LTR) — default: English
 
-## Features
-- **Restaurants**: Manage food offers, view/confirm/cancel reservations, see ratings, contribute to charity baskets
-- **Charities**: Browse offers, map view (Leaflet/OpenStreetMap), make reservations, rate restaurants, create/manage baskets
-- **Admin**: User management, offer oversight, activity logs, contact messages inbox, deliveries oversight
-- **Delivery drivers**: Browse available deliveries, accept → pickup → deliver, track stats
-- **Charity baskets**: Charities create baskets containing multiple items; multiple restaurants contribute partial quantities; basket auto-completes at 100% fulfillment, which auto-creates one delivery per unique contributing restaurant (idempotent via SELECT FOR UPDATE on basket row)
-- **Deliveries (strict Uber-like flow)**: pending → accepted → going_to_restaurant → (driver taps pickup) → **waiting_for_restaurant_confirmation** (restaurant sees alert, confirms handoff) → **picked_up** → going_to_charity → arrived (BLOCKED: charity must confirm first) → waiting_for_delivery_confirmation (charity confirmed) → confirmed_by_delivery (driver confirms) → request completed
-- **Restaurant confirm-pickup**: Driver taps "I arrived at restaurant" → delivery goes to `waiting_for_restaurant_confirmation`; restaurant sees prominent "Driver waiting" alert with "Confirm Handoff" button; after restaurant confirms → status becomes `picked_up` and driver is notified. Atomic DB with `restaurantConfirmedAt` guard.
-- **Charity confirm-receipt**: Mandatory step — charity sees "Needs Confirmation" section when driver arrives; MUST confirm before driver can do final confirm. Atomic DB operation with `charityConfirmedAt` timestamp guard.
-- **6-way mutual rating**: After completion, any role can rate their counterparts: restaurant→charity/delivery, charity→restaurant/delivery, driver→restaurant/charity. Uses `fromType/fromId/toType/toId` unique-per-pair ratings table.
-- **Delivery map**: Drivers can open a Leaflet+OSM map dialog showing pickup (restaurant) and dropoff (charity) pins with a polyline; uses Nominatim geocoding cached in localStorage
-- **Notifications**: Real-time unread badge in navbar, mark-read, mark-all-read. Multilingual body via `messageKey`/`messageParams` fields — notifications store a `{{param}}` template key; client interpolates in the user's current language at render time
-- **Confirmation dialogs**: Logout and cancel actions use AlertDialog in all 3 languages (AR/EN/RU)
-- **Contact Form**: Messages stored in DB → appear in admin inbox with read status
-- **Dark mode**: Full support via ThemeProvider
-- **Multilingual**: AR/EN/RU via custom context system (`LanguageProvider` + `translations.ts`). All delivery workflow statuses, rating system, and dashboards fully translated including new `delivery`, `charityDeliveries`, `ratings`, `deliveryStatuses` sections. RTL (Arabic) / LTR (EN/RU) auto-switch on language change.
+**Frontend:** React, TypeScript, Vite, Wouter, Tailwind CSS, shadcn/ui, Recharts,
+react-leaflet/Leaflet
+**Backend:** Node.js, Express.js, TypeScript, JWT auth, Drizzle ORM
+**Database:** PostgreSQL (11 tables, normalized to 3NF)
+**Testing:** Jest, Supertest, manual testing via Postman
+**DevOps:** Docker, Docker Compose
 
-## Database Tables
-- `users` — all roles (restaurant, charity, admin, delivery)
-- `food_offers` — restaurant food offers
-- `requests` — charity reservation requests
-- `activity_logs` — system audit trail
-- `notifications` — per-user real notifications
-- `ratings` — charity → restaurant ratings
-- `contact_messages` — contact form submissions
-- `baskets` — charity baskets (status: open/completed/expired/cancelled)
-- `basket_items` — line items inside a basket with requested vs fulfilled qty
-- `basket_contributions` — each restaurant's contribution toward a basket item
-- `deliveries` — delivery records linking request/basket → restaurant → charity → driver
+## Architecture
 
-## Admin Credentials
-- Email: `admin@wafra.com`
-- Password: `admin123`
+Layered architecture (Controller → Service → Repository) throughout the backend, with a
+custom `LanguageProvider` context on the frontend driving the i18n/RTL system.
 
-## Key Files
+## Role & Ownership (Team of 2)
+
+Owned end-to-end: system design, database schema, all backend logic (API, state machine,
+concurrency handling, auth), and the majority of the frontend. A teammate contributed
+additional frontend UI work.
+
+## Setup
+
+1. Clone the repo
+2. `docker-compose up` to start the Postgres instance
+3. Copy `.env.example` to `.env` and fill in your own values
+4. [remaining setup steps]
+
+---
+
+## Technical Documentation
+
+*(everything below is implementation detail for contributors/reviewers — not needed for a
+first-glance overview)*
+
+### Database Tables
+`users` · `food_offers` · `requests` · `activity_logs` · `notifications` · `ratings` ·
+`contact_messages` · `baskets` · `basket_items` · `basket_contributions` · `deliveries`
+
+### API Endpoints
+- `POST /api/auth/register|login`
+- `GET/PUT /api/notifications`
+- `POST /api/ratings`
+- `POST /api/contact`
+- `GET/PUT /api/admin/messages`
+- `GET/POST /api/baskets`, `GET /api/baskets/:id`, `POST /api/baskets/:id/contribute`,
+  `POST /api/baskets/:id/cancel`
+- `GET /api/deliveries`, `GET /api/deliveries/my`, `GET /api/deliveries/stats`,
+  `PUT /api/deliveries/:id/accept|pickup|deliver`
+- `GET /api/admin/deliveries`
+
+### Key Files
 - `shared/schema.ts` — Drizzle schema + Zod types
-- `server/storage.ts` — all DB operations (IStorage interface)
+- `server/storage.ts` — all DB operations
 - `server/routes.ts` — Express API routes
-- `client/src/lib/translations.ts` — i18n for ar/en/ru
-- `client/src/components/LeafletMap.tsx` — OpenStreetMap map component
-- `client/src/pages/` — all page components
-
-## API Endpoints
-- `POST /api/auth/register|login` — auth
-- `GET/PUT /api/notifications` — notifications
-- `POST /api/ratings` — submit rating
-- `POST /api/contact` — contact form
-- `GET/PUT /api/admin/messages` — admin inbox
-- `GET /api/baskets` — list open baskets (auto-expires stale ones)
-- `POST /api/baskets` — charity creates basket with items
-- `GET /api/baskets/:id` — basket details with items + contributors
-- `POST /api/baskets/:id/contribute` — restaurant contributes to one or more items; auto-completes basket at 100%
-- `POST /api/baskets/:id/cancel` — charity cancels its basket
-- `GET /api/deliveries` — driver lists available pending deliveries
-- `GET /api/deliveries/my` — driver lists own deliveries
-- `GET /api/deliveries/stats` — driver stats (total/active/completed/cancelled)
-- `PUT /api/deliveries/:id/accept|pickup|deliver` — driver flow
-- `GET /api/admin/deliveries` — admin oversight
+- `client/src/lib/translations.ts` — i18n (ar/en/ru)
+- `client/src/components/LeafletMap.tsx` — map component
