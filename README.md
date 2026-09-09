@@ -7,9 +7,7 @@ waste — with role-based dashboards for restaurants, charities, delivery driver
 
 Wafra coordinates four roles around a single workflow: restaurants list surplus food,
 charities reserve it or pool requests into shared "baskets," delivery drivers pick up and
-deliver, and admins oversee the whole system. Built as a graduation project (team of 2) —
-see [Role & Ownership](#role--ownership) below.
-
+deliver, and admins oversee the whole system. Built as a graduation project (team of 2)
 ## Key Features
 
 - **Charity baskets**: charities create baskets of needed items; multiple restaurants
